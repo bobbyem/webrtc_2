@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Watcher</title>
+    <link rel="stylesheet" href="style.css" />
+    <script
+      src="https://cdn.socket.io/4.6.0/socket.io.min.js"
+      integrity="sha384-c79GN5VsunZvi+Q/WObgk2in0CbZsHnjEqvFxC5DxHn9lTfNce2WW6h2pH6u/kF+"
+      crossorigin="anonymous"
+    ></script>
+  </head>
+  <body>
+    <h1>Watcher</h1>
+    <video id="remoteVideo"></video>
+    <div id="info">
+      <div>
+        <p>RoomId:</p>
+        <p id="displayRoomId"></p>
+      </div>
+      <div>
+        <p>Username:</p>
+        <p id="displayUsername"></p>
+      </div>
+      <div>
+        <p>Socket-Id:</p>
+        <p id="displaySocketId"></p>
+      </div>
+      <div>
+        <p>SocketStatus:</p>
+        <p id="displayWSStatus"></p>
+      </div>
+      <div>
+        <p>PeerConnectionStatus:</p>
+        <p id="displayPCStatus"></p>
+      </div>
+      <div>
+        <p>Message:</p>
+        <p id="displayMessage"></p>
+      </div>
+      <div>
+        <p>Error:</p>
+        <p id="displayError"></p>
+      </div>
+    </div>
+    <div>
+      <button id="join">Join Room</button>
+    </div>
+    <script type="module" src="utils.js"></script>
+    <script type="module" src="watcher.js"></script>
+  </body>
+</html>
