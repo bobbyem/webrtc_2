@@ -96,6 +96,8 @@ function sendMessage({ io, target, message }) {
 /* ---------------------------- Handler functions --------------------------- */
 
 function handleMessage({ io, socket, message }) {
+  let target, offer;
+
   if (!io || !socket || !message || !message.type)
     return sendError(socket, "handleMessage missing parameters");
 
@@ -170,6 +172,29 @@ function handleMessage({ io, socket, message }) {
       });
       break;
 
+    /* --------------------------------- offer; --------------------------------- */
+    case "offer":
+      target = message.data.target;
+      offer = message.data.offer;
+
+      // { target, offer } = message.data;
+      sendMessage({
+        io,
+        target,
+        message: { type: "offer", data: { offer, sender: socket.id } },
+      });
+      break;
+    /* --------------------------------- answer; --------------------------------- */
+    case "answer":
+      target = message.data.target;
+      offer = message.data.offer;
+      // { target, offer } = message.data;
+      sendMessage({
+        io,
+        target,
+        message: { type: "answer", data: { offer, sender: socket.id } },
+      });
+      break;
     /* --------------------------------- Default -------------------------------- */
     default:
       console.log(colors.red("could not resolve type:", message.type));

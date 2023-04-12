@@ -26,6 +26,7 @@ const messages = [];
 const STATE = {
   username: "",
   roomId: "",
+  mySocketId: "",
   connections: [],
   currentMembers: [],
 };
@@ -91,11 +92,19 @@ export function handleMessage({ socket, message }) {
   switch (message.type) {
     case "socketId":
       userFeedback("socketId", message.data.socketId);
-      console.log("message from server:", message);
+
+      //Update state
+      STATE.mySocketId = message.data.socketId;
+
       break;
     case "offer":
-      userFeedback("socketId", "Offer revieved from server");
-      console.log("message from server:", message);
+      const { offer, sender } = message.data;
+      console.log(
+        "🚀 ~ file: utils.js:98 ~ handleMessage ~ offer:",
+        offer,
+        sender
+      );
+      handleOffer({ offer, sender });
       break;
     case "candidate":
       userFeedback("socketId", "Offer revieved from server");
@@ -159,6 +168,21 @@ export function handleJoinRoom() {
     socket,
     message: new Message("joinRoom", { roomId: STATE.roomId }),
   });
+}
+
+//handleOffer - handles offer from other member
+async function handleOffer({ offer, sender }) {
+  console.log("🚀 ~ file: utils.js:166 ~ handleOffer ~ offer:", offer);
+
+  try {
+    const myConnection = STATE.connections.find(
+      (connection) => connection.socketId === STATE.mySocketId
+    );
+    if (myConnection)
+      return await sendAnswer({ connection: myConnection, offer, sender });
+  } catch (error) {
+    console.error("🚀 ~ file: utils.js:175 ~ handleOffer ~ error:", error);
+  }
 }
 
 /* ---------------------------- Helper functions ---------------------------- */
@@ -226,7 +250,13 @@ async function updateConnections(newMembersInfo) {
   //Create new connection objects and store
   STATE.currentMembers.forEach(async (member) => {
     if (!isUnique(member)) return;
-    STATE.connections.push(await createMemberConnection(member));
+    const connection = await createMemberConnection(member);
+
+    //Add to state
+    STATE.connections.push(connection);
+
+    //SendOffer
+    await sendOffer(connection);
   });
 
   //Update the display list
@@ -236,11 +266,14 @@ async function updateConnections(newMembersInfo) {
 //isUnique - check if user is already in connections
 function isUnique(member) {
   const { username, socketId } = member;
+
+  //Try to find a match
   const match = STATE.connections.find(
     (connectionObject) =>
       connectionObject.username === username ||
       connectionObject.socketId === socketId
   );
+
   return match ? false : true;
 }
 
@@ -301,4 +334,57 @@ function filterConnections(currentMembers) {
 
   //Update state
   STATE.connections = filtered;
+}
+
+//sendOffer - creates and sends offer to member
+async function sendOffer(connection) {
+  console.log("🚀 ~ file: utils.js:308 ~ sendOffer ~ connection:", connection);
+
+  try {
+    //Create offer
+    const offer = await connection.peerConnection.createOffer();
+    console.log("🚀 ~ file: utils.js:346 ~ sendOffer ~ offer:", offer);
+
+    await connection.peerConnection.setLocalDescription(offer);
+
+    sendMessage({
+      socket,
+      message: new Message("offer", { target: connection.socketId, offer }),
+    });
+  } catch (error) {
+    console.error("🚀 ~ file: utils.js:314 ~ sendOffer ~ error:", error);
+  }
+}
+
+//sendAnswer - creates and sends answer to member
+async function sendAnswer({ connection, offer, sender }) {
+  console.log(
+    "🚀 ~ file: utils.js:351 ~ sendAnswer ~ connection:",
+    connection,
+    offer,
+    sender
+  );
+
+  try {
+    const { peerConnection } = connection;
+    console.log(
+      "🚀 ~ file: utils.js:369 ~ sendAnswer ~ peerConnection:",
+      peerConnection
+    );
+
+    const result = await peerConnection.setRemoteDescription(offer);
+
+    const answer = await peerConnection.createAnswer();
+
+    console.log("🚀 ~ file: utils.js:376 ~ sendAnswer ~ result:", result);
+
+    console.log("🚀 ~ file: utils.js:380 ~ sendAnswer ~ answer:", answer);
+
+    sendMessage({
+      socket,
+      message: new Message("answer", { target: sender, answer }),
+    });
+  } catch (error) {
+    console.log("🚀 ~ file: utils.js:358 ~ sendAnswer ~ error:", error);
+  }
 }
