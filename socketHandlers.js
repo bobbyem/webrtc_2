@@ -7,21 +7,18 @@ function onConnection({ io, socket }) {
   //Send socket ID to frontend when connection is made
   sendSocketId(socket);
 
+  findSocketByUsername({ io, username: "sharer" });
+
   //Handle messages from client
   socket.on("message", (message) => handleMessage({ io, socket, message }));
 
-  //Handle socket disconnect
-  socket.on("disconnect", () => findConnectionByIdAndRemove(socket.id));
-
-  //Handle room created
-  io.of("/").adapter.on("create-room", (room) => {
-    console.log("🚀 ~ file: server.js:17 ~ room:", room);
-  });
-
   //Handle room joined
   io.of("/").adapter.on("join-room", async (room, id) => {
-    console.log("socket: ", id, " joined room: ", room);
+    //Check to see if room === socket.id - then we don't need to do anything
+    if (room === id) return;
+    //Get att sockets connected with room
     const sockets = await io.in(room).fetchSockets();
+
     if (compileMemberslist(sockets)) {
       //Tell members about the new roaster
       io.in(room).emit("message", {
@@ -31,20 +28,40 @@ function onConnection({ io, socket }) {
     }
   });
 
-  //Handle room joined
-  io.of("/").adapter.on("leave-room", (room, id) => {
-    console.log("socket: ", id, " leaved room: ", room);
+  //Handle room leave
+  io.of("/").adapter.on("leave-room", async (room, id) => {
+    //Check to see if room === socket.id - then we don't need to do anything
+    if (room === id) return;
+
+    //Log message
+    console.log("socket: ", id, " left room: ", room);
+
+    //Get att sockets connected with room
+    const sockets = await io.in(room).fetchSockets();
+
+    if (compileMemberslist(sockets)) {
+      //Tell members about the new roaster
+      io.in(room).emit("message", {
+        type: "members",
+        data: { members: compileMemberslist(sockets) },
+      });
+    }
+
+    const socketThatLeft = findSocketById({ io, id });
   });
 
-  //Handle room delete
-  io.of("/").adapter.on("delete-room", (room) => {
-    console.log("Delete room: ", room);
+  //Handle socket disconnect, remove eventlisteners
+  socket.on("disconnect", (reason) => {
+    console.log(
+      "🚀 ~ file: socketHandlers.js:55 ~ socket.on disconnect ~ reason:",
+      reason
+    );
+
+    //Remove listener message
+    socket.off("message", (message) => handleMessage({ io, socket, message }));
   });
 }
 
-function onDisconnecting({ io, socket }) {
-  findConnectionByIdAndRemove(socket.id);
-}
 /* ----------------------------- Emit functions ----------------------------- */
 
 function sendSocketId(socket) {
@@ -58,6 +75,7 @@ function sendError(socket, error) {
 
   //Let user know there has been an error
   socket.emit("message", { type: "error", data: { error } });
+  console.log("🚀 ~ file: socketHandlers.js:77 ~ sendError ~ error:", error);
 }
 
 function sendMessage({ io, target, message }) {
@@ -99,33 +117,48 @@ function handleMessage({ io, socket, message }) {
         message: { type: "message", data: { message: "username Recieved" } },
       });
 
+      if (findSocketByUsername({ io, username: message.data.username }))
+        return sendMessage({
+          io,
+          target: socket.id,
+          message: {
+            type: "error",
+            data: { message: "username already taken" },
+          },
+        });
+
+      //Set username on socket object
       socket.username = message.data.username;
 
-      //Store connection
-      if (storeConnection({ socket, username: message.data.username }))
+      if (findSocketByUsername({ io, username: message.data.username }))
         return sendMessage({
           io,
           target: socket.id,
           message: {
             type: "message",
-            data: { message: "username stored success" },
+            data: { message: "username set Successfully" },
           },
         });
+
+      sendMessage({
+        io,
+        target: socket.id,
+        message: {
+          type: "error",
+          data: { message: "username was not set please try a different one" },
+        },
+      });
+
       break;
 
     /* -------------------------------- joinRoom -------------------------------- */
     case "joinRoom":
-      //Validate username
+      //Validate payload
       if (!message.data.roomId) return sendError(socket, "roomId invalid");
 
-      console.log(
-        colors.magenta(
-          "joinRoom recieved: ",
-          message.data.roomId,
-          " from ",
-          socket.id
-        )
-      );
+      //Validate username
+      if (!socket.username)
+        return sendError(socket, "username needs to be set");
 
       //Join the socket to provided roomId
       socket.join(message.data.roomId);
@@ -146,56 +179,25 @@ function handleMessage({ io, socket, message }) {
 
 /* ---------------------------- Helper functions ---------------------------- */
 
-//storeConnection -
-function storeConnection({ socket, username }) {
-  if (findConnectionById(socket.id) || findConnectionByUsername(username))
-    return console.log("Duplicate id or username");
-
-  console.log(colors.magenta("storing connection for username: ", username));
-
-  //Connection to be stored
-  const connection = {
-    socketId: socket.id,
-    socket,
-    username,
-  };
-
-  //Push connection
-  connections.push(connection);
-
-  //Validate if storing was successful
-  if (findConnectionById(socket.id) && findConnectionByUsername(username))
-    return true;
-  return false;
-}
-
 //findConnectionById - return connection connected to given id
-function findConnectionById(id) {
-  return connections.find((con) => con.socketId === id);
+function findSocketById({ io, id }) {
+  const socket = io.sockets.sockets.get(id);
+
+  return socket;
 }
 //findConnectionByUsername - return connection connected to given username
-function findConnectionByUsername(username) {
-  return connections.find((con) => con.username === username);
-}
-//findConnectionByIdAndRemove - return
-function findConnectionByIdAndRemove(id) {
-  let match = connections.find((con) => con.socketId === id);
+function findSocketByUsername({ io, username }) {
+  const sockets = [...io.sockets.sockets.values()];
+  const socket = sockets.find((item) => item.username === username);
 
-  //if no match return false
-  if (!match) return false;
-
-  //Mutate array - filter out the mathing item
-  connections = connections.filter((con) => con.socketId !== id);
-
-  //See if item was truly removed
-  match = connections.find((con) => con.socketId === id);
-  if (!match) {
-    console.log(colors.red("removed: ", id, " from connections"));
-    return true;
+  if (socket?.username) {
+    console.log(
+      "🚀 ~ file: socketHandlers.js:166 ~ findSocketByUsername ~ username:",
+      socket.username
+    );
   }
 
-  //If there still is a match - we havent removed the item
-  return false;
+  return socket;
 }
 
 //compileMemberslist
@@ -204,7 +206,11 @@ function compileMemberslist(sockets) {
   sockets.forEach((socket) =>
     membersList.push({ username: socket.username, socketId: socket.id })
   );
+  console.log(
+    "🚀 ~ file: socketHandlers.js:175 ~ compileMemberslist ~ membersList:",
+    membersList
+  );
   return membersList ? membersList : null;
 }
 
-module.exports = { onConnection, onDisconnecting };
+module.exports = { onConnection };

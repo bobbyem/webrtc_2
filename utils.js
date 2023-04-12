@@ -23,6 +23,12 @@ export let socket = io(env.WSURL);
 
 //Local variables
 const messages = [];
+const STATE = {
+  username: "",
+  roomId: "",
+  connections: [],
+  currentMembers: [],
+};
 let localStream;
 
 /* --------------------------------- classes/objects -------------------------------- */
@@ -100,10 +106,10 @@ export function handleMessage({ socket, message }) {
       userFeedback("message", message.data.message);
       break;
     case "members":
-      if (message.data.members) updateRoomMembers(message.data.members);
+      if (message.data.members) updateConnections(message.data.members);
       break;
     case "error":
-      userFeedback("error", message.data.socketId);
+      userFeedback("error", message.data.message);
       console.error("message from server:", message);
       break;
     default:
@@ -118,6 +124,41 @@ export function sendMessage({ socket, message }) {
     return console.error("socket:", socket, "message:", message);
 
   socket.emit("message", message);
+}
+
+//handleUsername - gets the username input and sends it to the server
+export function handleUsername() {
+  const userNameInput = document.querySelector("#username");
+  STATE.username = userNameInput?.value;
+  if (!userNameInput || STATE.username === "")
+    return console.log(
+      "🚀 ~ file: utils.js:130 ~ handleUsername ~ userNameInput:",
+      userNameInput,
+      STATE.username
+    );
+
+  sendMessage({
+    socket,
+    message: new Message("username", { username: STATE.username }),
+  });
+}
+
+//handleJoinRoom - gets the room id input value and emits event to server
+export function handleJoinRoom() {
+  const roomIdInput = document.querySelector("#room");
+  STATE.roomId = roomIdInput.value;
+
+  if (!roomIdInput || STATE.roomId === "")
+    return console.log(
+      "🚀 ~ file: utils.js:147 ~ handleJoinRoom ~ roomIdInput:",
+      roomIdInput,
+      STATE.roomId
+    );
+
+  sendMessage({
+    socket,
+    message: new Message("joinRoom", { roomId: STATE.roomId }),
+  });
 }
 
 /* ---------------------------- Helper functions ---------------------------- */
@@ -168,5 +209,96 @@ export async function shareScreen() {
   );
   return false;
 }
-//
-function updateRoomMembers(members) {}
+//updateRoomMembers - updates state and triggers display update
+async function updateConnections(newMembersInfo) {
+  if (!newMembersInfo)
+    return console.error(
+      "🚀 ~ file: utils.js:173 ~ updateRoomMembers ~ members:",
+      newMembersInfo
+    );
+
+  //Update state
+  STATE.currentMembers = newMembersInfo;
+
+  //Filter connections
+  filterConnections(STATE.currentMembers);
+
+  //Create new connection objects and store
+  STATE.currentMembers.forEach(async (member) => {
+    if (!isUnique(member)) return;
+    STATE.connections.push(await createMemberConnection(member));
+  });
+
+  //Update the display list
+  updateRoomMemberDisplay(STATE.connections);
+}
+
+//isUnique - check if user is already in connections
+function isUnique(member) {
+  const { username, socketId } = member;
+  const match = STATE.connections.find(
+    (connectionObject) =>
+      connectionObject.username === username ||
+      connectionObject.socketId === socketId
+  );
+  return match ? false : true;
+}
+
+//updateRoomMemberDisplay
+function updateRoomMemberDisplay(members) {
+  //Get memberslist element div
+  const membersListElement = document.querySelector("#members");
+
+  if (!membersListElement)
+    return console.error(
+      "🚀 ~ file: utils.js:184 ~ updateRoomMembers ~ membersListElement:",
+      membersListElement
+    );
+
+  //Clear memberslist
+  membersListElement.replaceChildren();
+
+  //Loop thru members and create elements
+  members.forEach((member) => {
+    const paragraph = document.createElement("p");
+    const memberString = `Username: ${member.username} - SocketId: ${member.socketId}`;
+
+    //Set element text content
+    paragraph.textContent = memberString;
+
+    //Add to list element
+    membersListElement.appendChild(paragraph);
+  });
+}
+
+//createMemberConnection
+async function createMemberConnection(member) {
+  const { username, socketId } = member;
+  console.log(
+    "🚀 ~ file: utils.js:246 ~ createMemberConnection ~ username:",
+    username
+  );
+  console.log(
+    "🚀 ~ file: utils.js:246 ~ createMemberConnection ~ socketId:",
+    socketId
+  );
+
+  const peerConnection = await new RTCPeerConnection(iceServer);
+  const memberConnection = {
+    username,
+    socketId,
+    peerConnection,
+  };
+
+  return memberConnection;
+}
+
+//filterMembers - filters out memebers that are no longer in the session
+function filterConnections(currentMembers) {
+  const filtered = STATE.connections.filter((connection) =>
+    currentMembers.some((member) => connection.username === member.username)
+  );
+
+  //Update state
+  STATE.connections = filtered;
+}

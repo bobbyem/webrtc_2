@@ -27,6 +27,7 @@ video {
   display: inline;
   margin-bottom: 1rem;
 }
+
 #info p:nth-of-type(1) {
   font-weight: 900;
 }

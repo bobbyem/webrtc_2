@@ -7,12 +7,15 @@ import {
   Message,
   socket,
   shareScreen,
+  handleUsername,
+  handleJoinRoom,
 } from "/utils.js";
 
 //Dom elements
-const buttonJoinRoom = document.querySelector("#joinRoom");
-const buttonShareScreen = document.querySelector("#share");
-const buttonCall = document.querySelector("#call");
+const buttonShareScreen = document.querySelector("#btnShare");
+const buttonCall = document.querySelector("#btnCall");
+const buttonUsername = document.querySelector("#btnUsername");
+const buttonRoom = document.querySelector("#btnRoom");
 
 //Default variables
 const username = "sharer";
@@ -33,13 +36,7 @@ async function createPeerConnection(iceServer) {
 
 /* -------------------------- synchronus functions -------------------------- */
 //init - initial operations that need to happen on load
-function init() {
-  //Show the username
-  userFeedback("username", username);
-
-  if (socket)
-    sendMessage({ socket, message: new Message("username", { username }) });
-}
+function init() {}
 
 /* ----------------------------- Event listeners ---------------------------- */
 //Socket events
@@ -51,12 +48,7 @@ socket.on("message", (message) => handleMessage({ socket, message }));
 
 //element events
 //buttonJoinRoom
-buttonJoinRoom.addEventListener("click", () => {
-  sendMessage({
-    socket,
-    message: new Message("joinRoom", { roomId: roomToJoin }),
-  });
-});
+buttonRoom.addEventListener("click", handleJoinRoom);
 
 //buttonShareScreen
 buttonShareScreen?.addEventListener("click", () => {
@@ -67,7 +59,10 @@ buttonShareScreen?.addEventListener("click", () => {
 });
 
 //buttonCall
-buttonCall?.addEventListener("click", call);
+// buttonCall?.addEventListener("click", call);
+
+//buttonUsername
+buttonUsername?.addEventListener("click", handleUsername);
 /* ----------------------------- init operations ---------------------------- */
 
 //Init operations on load
