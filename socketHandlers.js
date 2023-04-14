@@ -19,6 +19,8 @@ function onConnection({ io, socket }) {
     //Get att sockets connected with room
     const sockets = await io.in(room).fetchSockets();
 
+    if (sockets.length <= 1) return;
+
     if (compileMemberslist(sockets)) {
       //Tell members about the new roaster
       io.in(room).emit("message", {
@@ -96,8 +98,6 @@ function sendMessage({ io, target, message }) {
 /* ---------------------------- Handler functions --------------------------- */
 
 function handleMessage({ io, socket, message }) {
-  let target, offer;
-
   if (!io || !socket || !message || !message.type)
     return sendError(socket, "handleMessage missing parameters");
 
@@ -109,7 +109,7 @@ function handleMessage({ io, socket, message }) {
   //Switch on message.type
   switch (message.type) {
     /* -------------------------------- username -------------------------------- */
-    case "username":
+    case "username": {
       //Validate username
       if (!message.data.username) return sendError(socket, "userName invalid");
 
@@ -152,9 +152,10 @@ function handleMessage({ io, socket, message }) {
       });
 
       break;
+    }
 
     /* -------------------------------- joinRoom -------------------------------- */
-    case "joinRoom":
+    case "joinRoom": {
       //Validate payload
       if (!message.data.roomId) return sendError(socket, "roomId invalid");
 
@@ -171,9 +172,10 @@ function handleMessage({ io, socket, message }) {
         message: { type: "message", data: { message: "room joined" } },
       });
       break;
+    }
 
     /* --------------------------------- offer; --------------------------------- */
-    case "offer":
+    case "offer": {
       target = message.data.target;
       offer = message.data.offer;
 
@@ -184,21 +186,22 @@ function handleMessage({ io, socket, message }) {
         message: { type: "offer", data: { offer, sender: socket.id } },
       });
       break;
+    }
     /* --------------------------------- answer; --------------------------------- */
-    case "answer":
-      target = message.data.target;
-      offer = message.data.offer;
-      // { target, offer } = message.data;
+    case "answer": {
+      const { target, answer } = message.data;
       sendMessage({
         io,
         target,
-        message: { type: "answer", data: { offer, sender: socket.id } },
+        message: { type: "answer", data: { answer, sender: socket.id } },
       });
       break;
+    }
     /* --------------------------------- Default -------------------------------- */
-    default:
+    default: {
       console.log(colors.red("could not resolve type:", message.type));
       break;
+    }
   }
 }
 

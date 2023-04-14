@@ -97,7 +97,7 @@ export function handleMessage({ socket, message }) {
       STATE.mySocketId = message.data.socketId;
 
       break;
-    case "offer":
+    case "offer": {
       const { offer, sender } = message.data;
       console.log(
         "🚀 ~ file: utils.js:98 ~ handleMessage ~ offer:",
@@ -106,21 +106,34 @@ export function handleMessage({ socket, message }) {
       );
       handleOffer({ offer, sender });
       break;
-    case "candidate":
+    }
+    case "answer": {
+      const { answer, sender } = message.data;
+      console.log("🚀 ~ file: utils.js:111 ~ handleMessage ~ sender:", sender);
+      console.log("🚀 ~ file: utils.js:111 ~ handleMessage ~ answer:", answer);
+
+      handleAnswer({ answer, sender });
+      break;
+    }
+    case "candidate": {
       userFeedback("socketId", "Offer revieved from server");
       console.log("message from server:", message);
       break;
-    case "message":
+    }
+    case "message": {
       console.log("message from server:", message);
       userFeedback("message", message.data.message);
       break;
-    case "members":
+    }
+    case "members": {
       if (message.data.members) updateConnections(message.data.members);
       break;
-    case "error":
+    }
+    case "error": {
       userFeedback("error", message.data.message);
       console.error("message from server:", message);
       break;
+    }
     default:
       console.error("Could not resolve message type");
   }
@@ -182,6 +195,28 @@ async function handleOffer({ offer, sender }) {
       return await sendAnswer({ connection: myConnection, offer, sender });
   } catch (error) {
     console.error("🚀 ~ file: utils.js:175 ~ handleOffer ~ error:", error);
+  }
+}
+
+//handleAnswer - handles answer from other member
+async function handleAnswer({ answer, sender }) {
+  console.log("🚀 ~ file: utils.js:197 ~ handleAnswer ~ sender:", sender);
+  console.log("🚀 ~ file: utils.js:197 ~ handleAnswer ~ answer:", answer);
+
+  try {
+    const connection = STATE.connections.find(
+      (connection) => connection.socketId === sender
+    );
+    if (connection) {
+      const { peerConnection } = connection;
+      await peerConnection.setRemoteDescription(answer);
+      console.log(
+        "🚀 ~ file: utils.js:206 ~ handleAnswer ~ peerConnection:",
+        peerConnection
+      );
+    }
+  } catch (error) {
+    console.error("🚀 ~ file: utils.js:207 ~ handleAnswer ~ error:", error);
   }
 }
 
@@ -256,6 +291,8 @@ async function updateConnections(newMembersInfo) {
     STATE.connections.push(connection);
 
     //SendOffer
+
+    if (connection.socketId === STATE.mySocketId) return;
     await sendOffer(connection);
   });
 
@@ -344,6 +381,11 @@ async function sendOffer(connection) {
     //Create offer
     const offer = await connection.peerConnection.createOffer();
     console.log("🚀 ~ file: utils.js:346 ~ sendOffer ~ offer:", offer);
+    const { peerConnection } = connection;
+    console.log(
+      "🚀 ~ file: utils.js:348 ~ sendOffer ~ peerConnection:",
+      peerConnection
+    );
 
     await connection.peerConnection.setLocalDescription(offer);
 
@@ -372,13 +414,16 @@ async function sendAnswer({ connection, offer, sender }) {
       peerConnection
     );
 
-    const result = await peerConnection.setRemoteDescription(offer);
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
 
     const answer = await peerConnection.createAnswer();
 
-    console.log("🚀 ~ file: utils.js:376 ~ sendAnswer ~ result:", result);
+    await peerConnection.setLocalDescription(new RTCSessionDescription(answer));
 
-    console.log("🚀 ~ file: utils.js:380 ~ sendAnswer ~ answer:", answer);
+    console.log(
+      "🚀 ~ file: utils.js:369 ~ sendAnswer ~ peerConnection:",
+      peerConnection
+    );
 
     sendMessage({
       socket,
