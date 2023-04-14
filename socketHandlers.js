@@ -1,8 +1,5 @@
 const colors = require("colors");
 
-//Stores the current connections. - {socketId, userName, room}
-let connections = [];
-
 function onConnection({ io, socket }) {
   //Send socket ID to frontend when connection is made
   sendSocketId(socket);
@@ -234,10 +231,10 @@ function compileMemberslist(sockets) {
   sockets.forEach((socket) =>
     membersList.push({ username: socket.username, socketId: socket.id })
   );
-  console.log(
-    "🚀 ~ file: socketHandlers.js:175 ~ compileMemberslist ~ membersList:",
-    membersList
-  );
+  // console.log(
+  //   "🚀 ~ file: socketHandlers.js:175 ~ compileMemberslist ~ membersList:",
+  //   membersList
+  // );
   return membersList ? membersList : null;
 }
 

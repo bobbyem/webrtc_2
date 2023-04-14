@@ -254,7 +254,7 @@ export async function shareScreen() {
   const videoElement = document.querySelector("#localVideo");
 
   if (stream && videoElement) {
-    localStream = stream;
+    localStream = stream.getTracks()[0];
     videoElement.srcObject = stream;
     return true;
   }
@@ -354,6 +354,42 @@ async function createMemberConnection(member) {
   );
 
   const peerConnection = await new RTCPeerConnection(iceServer);
+
+  //Add listener ICE
+  peerConnection.onicecandidate = (event) => {
+    console.log("🚀 ~ file: utils.js:360 ~ sendOffer ~ event:", event);
+    sendMessage({
+      socket,
+      message: new Message("candidate", {
+        target: connection.socketId,
+        candidate: event.candidate,
+      }),
+    });
+  };
+
+  peerConnection.oniceconnectionstatechange = (event) => {
+    console.log("🚀 ~ file: utils.js:371 ~ sendOffer ~ event:", event);
+  };
+
+  peerConnection.onnegotiationneeded = (event) => {
+    console.log("🚀 ~ file: utils.js:375 ~ sendOffer ~ event:", event);
+  };
+
+  peerConnection.ontrack = (event) => {
+    const incomingVideoStream = event.streams[0];
+    const incomingVideoTrack = incomingVideoStream.getTracks()[0];
+    console.log(
+      "🚀 ~ file: utils.js:361 ~ createMemberConnection ~ incomingVideoTrack:",
+      incomingVideoTrack
+    );
+    console.log(
+      "🚀 ~ file: utils.js:360 ~ createMemberConnection ~ incomingVideoStream:",
+      incomingVideoStream
+    );
+    const videoElement = document.querySelector("#localVideo");
+    videoElement.srcObject = new MediaStream([incomingVideoTrack]);
+  };
+
   const memberConnection = {
     username,
     socketId,
@@ -382,10 +418,10 @@ async function sendOffer(connection) {
     const offer = await connection.peerConnection.createOffer();
     console.log("🚀 ~ file: utils.js:346 ~ sendOffer ~ offer:", offer);
     const { peerConnection } = connection;
-    console.log(
-      "🚀 ~ file: utils.js:348 ~ sendOffer ~ peerConnection:",
-      peerConnection
-    );
+
+    if (localStream) {
+      await peerConnection.addTrack(localStream);
+    }
 
     await connection.peerConnection.setLocalDescription(offer);
 
