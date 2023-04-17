@@ -24,6 +24,7 @@ export let socket = io(env.WSURL);
 //Local variables
 const messages = [];
 const STATE = {
+  isServer: false,
   username: "",
   roomId: "",
   mySocketId: "",
@@ -146,6 +147,12 @@ export function sendMessage({ socket, message }) {
     return console.error("socket:", socket, "message:", message);
 
   socket.emit("message", message);
+}
+
+//handleIsServer - handle input if server or not
+export function handleIsServer(isServer) {
+  console.log("🚀 ~ file: utils.js:154 ~ handleIsServer ~ isServer:", isServer);
+  STATE.isServer = isServer;
 }
 
 //handleUsername - gets the username input and sends it to the server
@@ -290,10 +297,16 @@ async function updateConnections(newMembersInfo) {
     //Add to state
     STATE.connections.push(connection);
 
-    //SendOffer
+    if (STATE.isServer) {
+      console.log(
+        "🚀 ~ file: utils.js:301 ~ STATE.currentMembers.forEach ~ isServer:",
+        STATE.isServer
+      );
+      //SendOffer
 
-    if (connection.socketId === STATE.mySocketId) return;
-    await sendOffer(connection);
+      if (connection.socketId === STATE.mySocketId) return;
+      await sendOffer(connection);
+    }
   });
 
   //Update the display list

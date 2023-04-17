@@ -9,14 +9,15 @@ import {
   shareScreen,
   handleUsername,
   handleJoinRoom,
+  handleIsServer,
 } from "/utils.js";
 
 //Dom elements
+const serverCheckbox = document.querySelector("#isServer");
 const buttonShareScreen = document.querySelector("#btnShare");
 const buttonCall = document.querySelector("#btnCall");
 const buttonUsername = document.querySelector("#btnUsername");
 const buttonRoom = document.querySelector("#btnRoom");
-
 //Default variables
 const username = "sharer";
 const roomToJoin = "test";
@@ -63,6 +64,12 @@ buttonShareScreen?.addEventListener("click", () => {
 
 //buttonUsername
 buttonUsername?.addEventListener("click", handleUsername);
+
+//serverCheckbox
+serverCheckbox?.addEventListener("change", (e) => {
+  const isServer = e.target.checked;
+  handleIsServer(isServer);
+});
 /* ----------------------------- init operations ---------------------------- */
 
 //Init operations on load
